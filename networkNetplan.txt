@@ -1,0 +1,157 @@
+
+Настройка мережі в Лінукс через Netplan
+----------------------------------------
+Файл для настройки знаходиться в папці 
+/etc/netplan	
+має розширення *.yaml
+
+Вложені параметри повинні мати відступи табуляціями або пробілами (кількість має значення)
+---------------------------------------------------------------------------------------------------------------
+Проста настройка:
+-----------------
+network:
+    version: 2
+    renderer: networkd
+    ethernets:
+        ens3:
+            dhcp4: true
+        ens7:
+            dhcp4: no
+            addresses: [192.168.122.195/24]
+            gateway4: 192.168.122.1
+            mtu: 1500
+            nameservers:
+                addresses: [8.8.8.8, 77.88.8.8]
+                search: [ dmosk.local ]
+        ens9: 
+            dhcp4: no
+            addresses: [192.168.1.10/24, 192.168.1.20/24]
+            nameservers:
+                addresses:
+                    - 8.8.8.8
+                    - 77.88.8.8
+                search: [ dmosk.local, dmosk.ru ]
+---------------------------------------------------------------------------------------------------------------
+version - версія YAML, renderer - менеджер мережі (networkd або NetworkManager)
+для провірки 
+	netplan --debug generate
+
+для застосування (перечитування настройок, перезапуск мережі)
+	netplan apply
+----------------------------------------------------------------------------------------------------------------
+Відключення netplan і повернення до interfaces
+-----------------------------------------------
+1.Відкриваєм настройку GRUB
+	vi /etc/default/grub
+2.Знаходимо опцію GRUB_CMDLINE_LINUX і дописуємо параметри (якщо є інші насторойки то добавляєм через пробіл)
+	GRUB_CMDLINE_LINUX="netcfg/do_not_use_netplan=true"
+3.Встановлюємо ifupdown:
+	apt-get install ifupdown
+4.Настроюємо мережу в файлі
+	vi /etc/network/interfaces
+----------------------------------------------------------------------------------------------------------------
+Статичний маршрут
+------------------
+network:
+    version: 2
+    renderer: networkd
+    ethernets:
+        ens9:
+            dhcp4: no
+            addresses: 192.168.1.10/24
+            nameservers:
+                addresses:
+                    - 8.8.8.8
+                    - 77.88.8.8
+            routes:
+              - to: 192.168.0.0/24
+                via: 192.168.1.1
+                on-link: true
+------------------------------------------------------------------------------------------------------------------
+
+Обєднання інтерфейсів(bonds)
+-----------------------------
+network:
+    version: 2
+    renderer: networkd
+    ethernets:
+        ens2f0: {}
+        ens2f1: {}
+    bonds:
+        bond0:
+            dhcp4: no
+            interfaces:
+            - ens2f0
+            - ens2f1
+            parameters:
+                mode: active-backup
+            addresses:
+                - 192.168.122.195/24
+            gateway4: 192.168.122.1
+            mtu: 1500
+            nameservers:
+                addresses:
+                    - 8.8.8.8
+                    - 77.88.8.8
+-----------------------------------------------------------------------------------------------------------------
+mode може бути balance-rr | active-backup | balance-xor | broadcast | 802.3ad | balance-tlb
+-----------------------------------------------------------------------------------------------------------------
+Мережевий міст(bridge)
+-----------------------
+network:
+    version: 2
+    renderer: networkd
+    ethernets:
+        ens2f0: {}
+    bridges:
+        br0:
+            macaddress: ce:ce:ce:45:45:45
+            interfaces:
+                - ens2f0
+            addresses:
+                - 192.168.1.15/24
+            gateway4: 
+            nameservers:
+                addresses:
+                    - 77.88.8.8
+                    - 8.8.8.8
+            mtu: 1500
+            parameters:
+                stp: true
+                forward-delay: 4
+            dhcp4: false
+            dhcp6: false
+------------------------------------------------------------------------------------------------------------------
+Насторойка Vlan
+----------------
+network:
+    version: 2
+    renderer: networkd
+    ethernets:
+        ens3: {}
+    vlans: 
+        vlan5:
+            id: 5
+            link: ens3
+            dhcp4: no
+            addresses: [10.0.0.15/24]
+            gateway: 10.0.0.1
+-------------------------------------------------------------------------------------------------------------------
+
+WIFI
+------
+network:
+    version: 2
+    renderer: networkd
+    wifis:
+        wlp2s0b1:
+            dhcp4: no
+            dhcp6: no
+            addresses: [192.168.2.10/24]
+            gateway4: 192.168.2.1
+            nameservers:
+                addresses: [192.168.2.1, 77.88.8.8]
+            access-points:
+                <имя WiFi сети (SSID)>:
+                    password: wifi_password
+---------------------------------------------------------------------------------------------------------------------
